@@ -9,7 +9,7 @@ import struct
 from ryu.base import app_manager
 from ryu.controller import mac_to_port
 from ryu.controller import ofp_event
-from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER
+from ryu.controller.handler import MAIN_DISPATCHER, CONFIG_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
 from ryu.lib.mac import haddr_to_bin
@@ -65,6 +65,8 @@ class ProjectController(app_manager.RyuApp):
             flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
         datapath.send_msg(mod)
 
+
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
@@ -77,13 +79,14 @@ class ProjectController(app_manager.RyuApp):
         dst = eth.dst
         src = eth.src
         dpid = datapath.id
+        in_port = msg.in_port
+
         self.mac_to_port.setdefault(dpid, {})
         if src not in self.net:
             self.net.add_node(src)
             self.net.add_edge(src,dpid)
-            self.net.add_edge(dpid,src,port=msg.in_port)
+            self.net.add_edge(dpid,src,port=in_port)
         if dst in self.net:
-
             path=nx.shortest_path(self.net,src,dst)   
             next=path[path.index(dpid)+1]
             out_port=self.net[dpid][next]['port']
@@ -93,13 +96,14 @@ class ProjectController(app_manager.RyuApp):
         actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
 
         if out_port != ofproto.OFPP_FLOOD:
-            self.add_flow(datapath, msg.in_port, dst, actions)
+            self.add_flow(datapath, in_port, dst, actions)
 
         out = datapath.ofproto_parser.OFPPacketOut(
-            datapath=datapath, buffer_id=msg.buffer_id, in_port=msg.in_port,
+            datapath=datapath, buffer_id=msg.buffer_id, in_port=in_port,
             actions=actions)
         datapath.send_msg(out)
     
+
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
         switch_list = get_switch(self.topology_api_app, None)   
@@ -124,13 +128,15 @@ class ProjectController(app_manager.RyuApp):
     	file_path = file_path.replace(" ", "_")
     	nx.write_gexf(self.net, file_path)
 
+
     def update_network_weights(self):
-        Timer(120, self.update_network_weights).start()
+        Timer(60, self.update_network_weights).start()
         edges = self.net.edges(data=True)
         #logging.info("list of edges")
         #logging.info(list(edges))
         for e in edges:
             self.net[e[0]][e[1]]['weight'] = random.randint(1, 10)
+
 
     def store_flow_tables(self):
         Timer(30, self.store_flow_tables).start()
