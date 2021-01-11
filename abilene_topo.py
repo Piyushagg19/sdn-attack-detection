@@ -47,7 +47,7 @@ if __name__ == '__main__':
 	# c1 = RemoteController('c1', port = 6634)
 	# c2 = RemoteController('c2', port = 6635)
 
-	#cmap = {'s1' : c0, 's2' : c0, 's3' : c1, 's4' : c1, 's5' : c2, 's6' : c2, 's7' : c2, 's8' : c2, 's9' : c2, 's10' : c1, 's11' : c0}
+	# cmap = {'s1' : c0, 's2' : c0, 's3' : c1, 's4' : c1, 's5' : c2, 's6' : c2, 's7' : c2, 's8' : c2, 's9' : c2, 's10' : c1, 's11' : c0}
 
 	# class MultiSwitch(OVSSwitch):
 	# 	def start(self, controllers):
@@ -59,7 +59,6 @@ if __name__ == '__main__':
 	#trafficGen = TrafficGenerator(net)
 
 	c0 = net.addController(name='ryucontroller0', controller=RemoteController, ip='127.0.0.1', port=6633)
-
 	net.start()
 	CLI(net)
 	net.stop()

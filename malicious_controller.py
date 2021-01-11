@@ -17,7 +17,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
+from ryu.lib.packet import ethernet, ether_types
 
 from ryu.topology.api import get_switch, get_link
 from ryu.app.wsgi import ControllerBase
@@ -30,14 +30,12 @@ import random
 import requests
 import json
 
-NETWORK_STATE_UPDATE_DURATION = 60
+class MaliciousController(app_manager.RyuApp):
 
-class ProjectController(app_manager.RyuApp):
-	
 	OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
 
 	def __init__(self, *args, **kwargs):
-		super(ProjectController, self).__init__(*args, **kwargs)
+		super(MaliciousController, self).__init__(*args, **kwargs)
 		self.mac_to_port = {}
 		self.topology_api_app = self
 		self.net=nx.DiGraph()
@@ -47,11 +45,6 @@ class ProjectController(app_manager.RyuApp):
 		self.no_of_nodes = 0
 		self.no_of_links = 0
 		self.i=0
-		self.update_network_weights()
-		#self.store_network_state()
-		#self.store_flow_tables()
-
-
 
 	# Handy function that lists all attributes in the given object
 	def ls(self,obj):
@@ -74,17 +67,20 @@ class ProjectController(app_manager.RyuApp):
 
 	@set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
 	def _packet_in_handler(self, ev):
+
 		msg = ev.msg
 		datapath = msg.datapath
 		ofproto = datapath.ofproto
 
 		pkt = packet.Packet(msg.data)
 		eth = pkt.get_protocol(ethernet.ethernet)
-
 		dst = eth.dst
 		src = eth.src
 		dpid = datapath.id
 		in_port = msg.in_port
+
+		# if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+		# 	return
 
 		self.mac_to_port.setdefault(dpid, {})
 		if src not in self.net:
@@ -94,10 +90,11 @@ class ProjectController(app_manager.RyuApp):
 		if dst in self.net:
 			path=nx.shortest_path(self.net,src,dst)   
 			next=path[path.index(dpid)+1]
-			out_port=self.net[dpid][next]['port']
+			out_port = self.net[dpid][next]['port']
 		else:
 			out_port = ofproto.OFPP_FLOOD
 
+		out_port = ofproto.OFPP_FLOOD
 		actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
 
 		if out_port != ofproto.OFPP_FLOOD:
@@ -125,40 +122,3 @@ class ProjectController(app_manager.RyuApp):
 		self.net.add_edges_from(links)
 		print("**********List of links")
 		print(self.net.edges())
-
-
-	def store_network_state(self):
-		Timer(120, self.store_network_state).start()
-		file_path = expanduser('~') + "/acn/project/network_state/network_" + str(datetime.datetime.now()) + ".gexf"
-		file_path = file_path.replace(" ", "_")
-		nx.write_gexf(self.net, file_path)
-
-
-	def update_network_weights(self):
-		Timer(NETWORK_STATE_UPDATE_DURATION, self.update_network_weights).start()
-		edges = self.net.edges(data=True)
-		#logging.info("list of edges")
-		#logging.info(list(edges))
-		for e in edges:
-			self.net[e[0]][e[1]]['weight'] = random.randint(1, 10)
-
-
-	def store_flow_tables(self):
-		Timer(30, self.store_flow_tables).start()
-		try:
-			logging.info('----mac to port---')
-			logging.info(self.mac_to_port)
-			r = requests.get('http://localhost:8080/stats/switches')
-			sws = r.json()
-			for s in sws:
-				file_path = expanduser('~') + "/acn/flow_tables/" + str(s) + ".json"
-				r = requests.get('http://localhost:8080/stats/flow/' + str(s))
-				f = open(file_path, "a+")
-				json.dump(r.json(), f, indent=4, sort_keys=True)
-				f.write("\n\n\n");
-				f.close()
-			#logging.info(sws)
-		except requests.exceptions.RequestException as e:
-			logging.error("error in making connection")
-			return
-

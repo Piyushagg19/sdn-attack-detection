@@ -17,7 +17,7 @@ class TrafficGenerator:
 
 	def start(self):
 		time.sleep(5)
-		file_path = "/home/abhi/acn/project/log.txt"
+		file_path = "./traffic.log"
 		while True:
 			while True:
 				src, dst = random.randint(0, 32), random.randint(0, 32)
@@ -33,7 +33,7 @@ class TrafficGenerator:
 
 			res = src.popen("iperf -f m -c %s -u -b 200m -t 30" % (dst.IP()), stdout=subprocess.PIPE)
 			#f.write(str(res) + "\n")
-			time.sleep(20)
+			time.sleep(10)
 			f.close()
 			#src.cmd('telnet', dst.IP(), '5001')
 			#serverbw, clientbw = self.net.iperf([src, dst], seconds=5)
