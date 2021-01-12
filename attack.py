@@ -1,38 +1,71 @@
+
+from loghandler import Logger
+
 import requests
 import random
-import logging
 import time
+from datetime import datetime
+import os
+import csv
 
+#api end point
 HOST = 'http://localhost'
 PORT = ':8080'
 
+#attack dataset file
+CSV_FILE = 'attack_logs.csv'
+log = Logger().getlogger()
+
 def main():
+
+	#run the loop every 10 second
 	while (True):
+
+		#fecthing list of switches
 		resp = requests.get(HOST + PORT + '/stats/switches').json()
 		
 		if len(resp) > 0:
+			#randomly selecting a switch, an in_port & an out_port
 			dpid = random.choice(resp)
 			in_port = random.choice([1, 2, 3, 4, 5, 6])
 			out_port = random.choice([1, 2, 3, 4, 5, 6])
+
+			#json format flow data
 			data = {
 				'dpid': dpid,
 				'priority': 32768,
 				'match': {
 					'in_port': in_port
-				}
-			}
-			if(random.choice([True, False])):
-				data['actions'] = [
+				},
+				'actions' : [
 					{
 						'type': 'OUTPUT',
 						'port': out_port
 					}
 				]
-			else:
-				data['actions'] = []
+			}
 
+			#making post request to add new flow entry in switch
 			resp = requests.post(HOST + PORT + '/stats/flowentry/add', json=data)
-			print('response of adding new flow' + str(resp))
+			log.info('resp : ' + str(resp))
+			
+			#preparing data to write to file
+			curr_timestamp = datetime.utcnow().strftime('%s')
+			fields = {'time':curr_timestamp,'datapath': data['dpid'], 'in-port':in_port, 
+				'action':data['actions'], 'out-port':out_port}
+			
+			#checking if file already exist
+			flag = os.path.isfile(CSV_FILE)
+
+			with open(CSV_FILE, 'a') as f:
+				header = list(fields.keys())
+				writer = csv.DictWriter(f, fieldnames=header)
+				
+				#writing header if file is being created for first time
+				if not flag:
+					writer.writeheader()
+
+				writer.writerow(fields)
 		time.sleep(10)
 
 

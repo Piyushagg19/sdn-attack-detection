@@ -1,20 +1,25 @@
-import shortestpath
-import malicious_controller
+'''
+ryu-manager --ofp-tcp-listen-port 6633 --observe-links monitor.py ryu.app.ofctl_rest
+'''
 
-import logging
-logging.basicConfig(filename='app.log', filemode='a', 
-    		format = '%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s', 
-    		datefmt='%H:%M:%S')
+
+
+
+import shortestpath
+
+from loghandler import Logger
 from datetime import datetime
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
+from ryu.lib.mac import haddr_to_bin
 import csv
 import os
 
 #training dataset file
 CSV_FILE = 'train_data.csv'
+log = Logger().getlogger()
 
 class Monitor(shortestpath.ProjectController):
 
@@ -23,7 +28,7 @@ class Monitor(shortestpath.ProjectController):
         self.datapaths = {}
         self.monitor_thread = hub.spawn(self._monitor)
         self.fields = {'time':'','datapath':'','in-port':'','eth_src':'','eth_dst':'','out-port':'','total_packets':0,'total_bytes':0,\
-         'duration':0, 'priority':0, 'class':0}
+         'duration':0, 'priority':0, 'out-port-1':[], 'out-port-2':[], 'out-port-3':[], 'out-port-4':[], 'out-port-5':[], 'out-port-6':[], 'class':0}
         self.train = True
 
 
@@ -33,16 +38,16 @@ class Monitor(shortestpath.ProjectController):
         datapath = ev.datapath
         if ev.state == MAIN_DISPATCHER:
             if datapath.id not in self.datapaths:
-                logging.info('register datapath: ' + str(datapath.id))
+                log.info('register datapath: ' + str(datapath.id))
                 self.datapaths[datapath.id] = datapath
         elif ev.state == DEAD_DISPATCHER:
             if datapath.id in self.datapaths:
-                logging.info('unregister datapath: ' + str(datapath.id))
+                log.info('unregister datapath: ' + str(datapath.id))
                 del self.datapaths[datapath.id]
 
 
     def _monitor(self):
-        #logging.info('time\tdatapath\tin-port\teth-src\teth-dst\tout-port\ttotal_packets\ttotal_bytes')
+        #log.info('time\tdatapath\tin-port\teth-src\teth-dst\tout-port\ttotal_packets\ttotal_bytes')
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
@@ -50,7 +55,7 @@ class Monitor(shortestpath.ProjectController):
 
 
     def _request_stats(self, datapath):
-        #logging.info("send stats request: " + str(datapath.id))
+        #log.info("send stats request: " + str(datapath.id))
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
@@ -64,27 +69,42 @@ class Monitor(shortestpath.ProjectController):
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):
         body = ev.msg.body
-        #logging.info(body)
+        #log.info(body)
         #storing switch table flow entries as training data
         for stat in body:
         	if len(stat.actions) > 0 and stat.actions[0].port != 65533:
 	        	self.fields['time'] = datetime.utcnow().strftime('%s')
 	        	self.fields['datapath'] = str(ev.msg.datapath.id)
 	        	self.fields['in-port'] = str(stat.match.in_port)
-	        	self.fields['eth_src'] = str(stat.match.dl_src)
-	        	self.fields['eth_dst'] = str(stat.match.dl_dst)
+	        	self.fields['eth_src'] = stat.match.dl_src
+	        	self.fields['eth_dst'] = stat.match.dl_dst
 	        	self.fields['out-port'] = str(stat.actions[0].port)
 	        	self.fields['total_packets'] = str(stat.packet_count)
 	        	self.fields['total_bytes'] = str(stat.byte_count)
 	        	self.fields['duration'] = str(stat.duration_sec)
 	        	self.fields['priority'] = str(stat.priority)
+	        	self.fields['out-port-1'] = []
+	        	self.fields['out-port-2'] = []
+	        	self.fields['out-port-3'] = []
+	        	self.fields['out-port-4'] = []
+	        	self.fields['out-port-5'] = []
+	        	self.fields['out-port-6'] = []
 	        	#0 = normal traffic
 	        	self.fields['class'] = str(0)
 	        	#1 = malicious traffic
 	        	#self.fields['class'] = str(1)
 
+	        	#getting out-edges for switch
+	        	out_edges = list(self.net.out_edges(ev.msg.datapath.id, data=True))
+	        	log.info('out-edges : ' + str(out_edges))
+
+	        	for e in out_edges:
+	        		if e[2] and 'port' in e[2] and 'weight' in e[2]:
+	        			fld = 'out-port-' + str(e[2]['port'])
+	        			self.fields[fld].append(e[2]['weight'])
+
 	        	if(self.train):
-	        		#logging.info('trainning enabled')
+	        		#log.info('trainning enabled')
 	        		flag = os.path.isfile(CSV_FILE)
 	        		with open(CSV_FILE, 'a') as f:
 	        			header = list(self.fields.keys())
@@ -94,7 +114,7 @@ class Monitor(shortestpath.ProjectController):
 	        			if not flag:
 	        				writer.writeheader()
 
-	        			logging.info(self.fields)
+	        			log.info(self.fields)
 	        			writer.writerow(self.fields)
 	        	else:
 	        		return

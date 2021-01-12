@@ -3,7 +3,7 @@ from mininet.log import setLogLevel
 from mininet.cli import CLI
 from mininet.net import Mininet
 from mininet.node import OVSSwitch, Controller, RemoteController
-from trafic import TrafficGenerator
+from traffic import TrafficGenerator
 import threading
 
 switches = []
@@ -56,7 +56,7 @@ if __name__ == '__main__':
 	setLogLevel('info')
 	topo = AbileneTopo()
 	net = Mininet(topo = topo, controller=None, autoStaticArp=True, autoSetMacs=True)
-	#trafficGen = TrafficGenerator(net)
+	trafficGen = TrafficGenerator(net)
 
 	c0 = net.addController(name='ryucontroller0', controller=RemoteController, ip='127.0.0.1', port=6633)
 	net.start()

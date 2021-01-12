@@ -3,10 +3,7 @@ ryu-manager --ofp-tcp-listen-port 6633 --observe-links shortestpath.py ryu.app.o
 '''
 
 
-import logging
-logging.basicConfig(filename='app.log', filemode='a', 
-			format = '%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s', 
-			datefmt='%H:%M:%S')
+from loghandler import Logger
 import struct
 
 from ryu.base import app_manager
@@ -17,7 +14,7 @@ from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
 from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import packet
-from ryu.lib.packet import ethernet
+from ryu.lib.packet import ethernet, ether_types
 
 from ryu.topology.api import get_switch, get_link
 from ryu.app.wsgi import ControllerBase
@@ -31,6 +28,7 @@ import requests
 import json
 
 NETWORK_STATE_UPDATE_DURATION = 60
+log = Logger().getlogger()
 
 class ProjectController(app_manager.RyuApp):
 	
@@ -41,7 +39,7 @@ class ProjectController(app_manager.RyuApp):
 		self.mac_to_port = {}
 		self.topology_api_app = self
 		self.net=nx.DiGraph()
-		print(nx.__version__)
+		log.info(nx.__version__)
 		self.nodes = {}
 		self.links = {}
 		self.no_of_nodes = 0
@@ -55,8 +53,9 @@ class ProjectController(app_manager.RyuApp):
 
 	# Handy function that lists all attributes in the given object
 	def ls(self,obj):
-		print("\n".join([x for x in dir(obj) if x[0] != "_"]))
+		log.info("\n".join([x for x in dir(obj) if x[0] != "_"]))
 	
+	# method to add flow entry in switch
 	def add_flow(self, datapath, in_port, dst, actions):
 		ofproto = datapath.ofproto
 
@@ -71,7 +70,7 @@ class ProjectController(app_manager.RyuApp):
 		datapath.send_msg(mod)
 
 
-
+	# method to handle packet in event
 	@set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
 	def _packet_in_handler(self, ev):
 		msg = ev.msg
@@ -80,6 +79,9 @@ class ProjectController(app_manager.RyuApp):
 
 		pkt = packet.Packet(msg.data)
 		eth = pkt.get_protocol(ethernet.ethernet)
+
+		if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+			return
 
 		dst = eth.dst
 		src = eth.src
@@ -91,12 +93,16 @@ class ProjectController(app_manager.RyuApp):
 			self.net.add_node(src)
 			self.net.add_edge(src,dpid)
 			self.net.add_edge(dpid,src,port=in_port)
-		if dst in self.net:
-			path=nx.shortest_path(self.net,src,dst)   
-			next=path[path.index(dpid)+1]
-			out_port=self.net[dpid][next]['port']
-		else:
-			out_port = ofproto.OFPP_FLOOD
+
+		try :
+			if dst in self.net:
+				path=nx.shortest_path(self.net,src,dst)   
+				next=path[path.index(dpid)+1]
+				out_port=self.net[dpid][next]['port']
+			else:
+				out_port = ofproto.OFPP_FLOOD
+		except:
+			return
 
 		actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
 
@@ -121,10 +127,10 @@ class ProjectController(app_manager.RyuApp):
 		#print links
 		self.net.add_edges_from(links)
 		links=[(link.dst.dpid,link.src.dpid,{'port':link.dst.port_no}) for link in links_list]
-		#print links
+		#links
 		self.net.add_edges_from(links)
-		print("**********List of links")
-		print(self.net.edges())
+		log.info("**********List of links")
+		log.info(self.net.edges())
 
 
 	def store_network_state(self):
@@ -137,28 +143,9 @@ class ProjectController(app_manager.RyuApp):
 	def update_network_weights(self):
 		Timer(NETWORK_STATE_UPDATE_DURATION, self.update_network_weights).start()
 		edges = self.net.edges(data=True)
-		#logging.info("list of edges")
-		#logging.info(list(edges))
+		#log.info("list of edges")
+		#log.info(list(edges))
 		for e in edges:
 			self.net[e[0]][e[1]]['weight'] = random.randint(1, 10)
-
-
-	def store_flow_tables(self):
-		Timer(30, self.store_flow_tables).start()
-		try:
-			logging.info('----mac to port---')
-			logging.info(self.mac_to_port)
-			r = requests.get('http://localhost:8080/stats/switches')
-			sws = r.json()
-			for s in sws:
-				file_path = expanduser('~') + "/acn/flow_tables/" + str(s) + ".json"
-				r = requests.get('http://localhost:8080/stats/flow/' + str(s))
-				f = open(file_path, "a+")
-				json.dump(r.json(), f, indent=4, sort_keys=True)
-				f.write("\n\n\n");
-				f.close()
-			#logging.info(sws)
-		except requests.exceptions.RequestException as e:
-			logging.error("error in making connection")
-			return
+			#log.info('updated weight : ' + str(e[0]) + " -> " + str(e[1]) + " : " + str(self.net[e[0]][e[1]]['weight']))
 

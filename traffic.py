@@ -4,9 +4,13 @@ import sys
 import threading, time
 from os.path import expanduser
 import subprocess
+from datetime import datetime
 
 flush = sys.stdout.flush
+#log file
+LOG_FILE = 'traffic.log'
 
+#traffic generator script - called in abilene_topo.py script
 class TrafficGenerator:
 	def __init__(self, net):
 		self.net = net
@@ -14,27 +18,32 @@ class TrafficGenerator:
 		th.daemon = True
 		th.start()
 
-
+	# method for background process
 	def start(self):
 		time.sleep(5)
-		file_path = "./traffic.log"
+
 		while True:
+			# selecting distinct src and dst randomly from available hosts
 			while True:
 				src, dst = random.randint(0, 32), random.randint(0, 32)
 				if(src != dst):
 					break
 
+
 			src, dst = self.net.hosts[src], self.net.hosts[dst]
 			
-			f = open(file_path, "a+")
-			f.write("testing between " + str(src.name) + " ---> " + str(dst.name) + "\n")
-			res = dst.popen('iperf -s -u')
-			#f.write(str(res) + "\n")
+			f = open(LOG_FILE, "a+")
+			curr_timestamp = datetime.utcnow().strftime('%s')
+			f.write(curr_timestamp + " src: " + str(src.name) + " dst: " + str(dst.name) + "\n")
 
+			# creating server at dst host
+			res = dst.popen('iperf -s -u')
+
+			# creating client at src host
 			res = src.popen("iperf -f m -c %s -u -b 200m -t 30" % (dst.IP()), stdout=subprocess.PIPE)
-			#f.write(str(res) + "\n")
+
+			# sleeping for 10 seconds before another run
 			time.sleep(10)
+
 			f.close()
-			#src.cmd('telnet', dst.IP(), '5001')
-			#serverbw, clientbw = self.net.iperf([src, dst], seconds=5)
 			flush()
