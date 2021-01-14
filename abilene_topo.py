@@ -12,9 +12,6 @@ class AbileneTopo(Topo):
 
 	def __init__(self, **opts):
 		Topo.__init__(self, **opts)
-		
-		# switches = []
-		# hosts = []
 
 		for s in range(11):
 			switches.append(self.addSwitch('s%s' % (s + 1)))

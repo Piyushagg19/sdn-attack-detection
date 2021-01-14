@@ -2,9 +2,6 @@
 ryu-manager --ofp-tcp-listen-port 6633 --observe-links monitor.py ryu.app.ofctl_rest
 '''
 
-
-
-
 import shortestpath
 
 from loghandler import Logger
