@@ -1,22 +1,31 @@
-from sklearn.cluster import DBSCAN
-import sklearn.utils
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn import metrics
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
+from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 import pandas as pd
 pd.options.mode.chained_assignment = None
 import pickle
 
-import matplotlib.pyplot as plt
-import numpy as np
 from os import path
 
-MODEL_FILE = 'trained_dbscan.sav'
+MODEL_FILE = 'trained_ann.pkl'
 LL_FILE = 'trained_ll.pkl'
 SS_FILE = 'trained_ss.pkl'
 
 class Model:
 	def __init__(self):
-		self.model = pickle.load(open(MODEL_FILE, 'rb'))
-		print("params : " + str(self.model.get_params()))
+		self.model = None
+		if path.exists(MODEL_FILE):
+			self.model = pickle.load(open(MODEL_FILE, 'rb'))
+		else:
+			self.model =Sequential()
+			self.model.add(Dense(10, activation='relu'))
+			self.model.add(Dense(50, activation='relu'))
+			self.model.add(Dense(10, activation='relu'))
+			#self.model.add(Dense(1, kernel_initializer='normal'))
+			self.model.add(Dense(1, activation='softmax'))
+			self.model.compile(loss='categorical_crossentropy', optimizer='adam')
 		
 		self.ll = LabelEncoder()
 		if path.exists(LL_FILE):
@@ -42,14 +51,13 @@ class Model:
 			df.loc[indx, 'weight'] = max(l, default=10)
 
 		# label encoding dst mac addresses
-		df = df[['in-port', 'eth_dst', 'out-port', 'total_packets', 'total_bytes', 'duration', 'weight']]
+		df = df[['in-port', 'eth_dst', 'out-port', 'total_packets', 'total_bytes', 'duration', 'weight', 'class']]
 		df['eth_dst'] = self.ll.transform(df['eth_dst'])
 
 		# normalizing data
 		cols = ['total_packets', 'total_bytes', 'duration', 'weight']
 		scaled_values = self.ss.transform(df[cols].values)
 		df[cols] = scaled_values
-		
 		return df
 
 	def fit(self, df):
@@ -65,24 +73,20 @@ class Model:
 if __name__ == "__main__":
 	print("inside")
 	obj = Model()
-	df = pd.read_csv('./training data/training_data_pos.csv')
+	df = pd.read_csv('./training data/training_data_neg_1.csv')
+	df = obj.preprocess(df)
+	x_columns = df.columns.drop('class')
+	x = df[x_columns].values
+	y = df['class'].values
 
-	N = df.shape[0]
-	i = 0
-	while (i < N):
-		temp_df = df[i : min(N, i + 50000)]
-		i += 50000
-		temp_df = obj.preprocess(temp_df)
-		obj.fit(temp_df)
-		n_clusters = len(set(obj.labels)) - (1 if -1 in obj.labels else 0)
-		print('clusters : ' + str(n_clusters))
-		n_outliers = list(obj.labels).count(-1)
-		print('outliers : ' + str(n_outliers))
+	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=2)
+
+	obj.model.fit(x_train, y_train, validation_data = (x_test, y_test), verbose=1, epochs=1000)
 	
 	filename = 'trained_ll.pkl'
 	pickle.dump(obj.ll, open(filename, 'wb'))
 	filename = 'trained_ss.pkl'
 	pickle.dump(obj.ss, open(filename, 'wb'))
 
-	filename = 'trained_dbscan.sav'
-	pickle.dump(obj.model, open(filename, 'wb'))
+	# filename = 'trained_dbscan.sav'
+	# pickle.dump(obj.model, open(filename, 'wb'))
