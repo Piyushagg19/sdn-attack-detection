@@ -3,14 +3,16 @@ ryu-manager --ofp-tcp-listen-port 6633 --observe-links monitor.py ryu.app.ofctl_
 '''
 
 import shortestpath
-
+from dbscan import Model as DBSCAN
 from loghandler import Logger
+
 from datetime import datetime
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER, DEAD_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.lib import hub
 from ryu.lib.mac import haddr_to_bin
+import pandas as pd
 import csv
 import os
 
@@ -26,7 +28,8 @@ class Monitor(shortestpath.ProjectController):
         self.monitor_thread = hub.spawn(self._monitor)
         self.fields = {'time':'','datapath':'','in-port':'','eth_src':'','eth_dst':'','out-port':'','total_packets':0,'total_bytes':0,\
          'duration':0, 'priority':0, 'out-port-1':[], 'out-port-2':[], 'out-port-3':[], 'out-port-4':[], 'out-port-5':[], 'out-port-6':[], 'class':0}
-        self.train = True
+        self.train = False
+        self.model = DBSCAN()
 
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
@@ -114,5 +117,16 @@ class Monitor(shortestpath.ProjectController):
 	        			log.info(self.fields)
 	        			writer.writerow(self.fields)
 	        	else:
-	        		return
-	        		# ML thingy
+	        		self.fields['out-port-1'] = str(self.fields['out-port-1'])
+	        		self.fields['out-port-2'] = str(self.fields['out-port-2'])
+	        		self.fields['out-port-3'] = str(self.fields['out-port-3'])
+	        		self.fields['out-port-4'] = str(self.fields['out-port-4'])
+	        		self.fields['out-port-5'] = str(self.fields['out-port-5'])
+	        		self.fields['out-port-6'] = str(self.fields['out-port-6'])
+
+	        		df = pd.DataFrame(self.fields, index=[0])
+	        		df = self.model.preprocess(df)
+	        		res = self.model.predict(df)
+	        		log.info('records : ' + str(df))
+	        		log.info('response from model : ' + str(res))
+
