@@ -22,12 +22,13 @@ from ryu.topology import event, switches
 import networkx as nx
 from os.path import expanduser
 from threading import Timer
-import datetime
+from datetime import datetime
 import random
 import requests
 import json
 
-NETWORK_STATE_UPDATE_DURATION = 60
+NETWORK_STATE_UPDATE_DURATION = 300
+NETWORK_STATE_FILE_PATH = "network_state/"
 log = Logger().getlogger()
 
 class ProjectController(app_manager.RyuApp):
@@ -46,10 +47,6 @@ class ProjectController(app_manager.RyuApp):
 		self.no_of_links = 0
 		self.i=0
 		self.update_network_weights()
-		#self.store_network_state()
-		#self.store_flow_tables()
-
-
 
 	# Handy function that lists all attributes in the given object
 	def ls(self,obj):
@@ -134,12 +131,11 @@ class ProjectController(app_manager.RyuApp):
 
 
 	def store_network_state(self):
-		Timer(120, self.store_network_state).start()
-		file_path = expanduser('~') + "/acn/project/network_state/network_" + str(datetime.datetime.now()) + ".gexf"
-		file_path = file_path.replace(" ", "_")
+		file_path = NETWORK_STATE_FILE_PATH + datetime.utcnow().strftime('%s') + ".gexf"
 		nx.write_gexf(self.net, file_path)
 
 
+	# method to periodicaly update network state
 	def update_network_weights(self):
 		Timer(NETWORK_STATE_UPDATE_DURATION, self.update_network_weights).start()
 		edges = self.net.edges(data=True)
@@ -148,4 +144,6 @@ class ProjectController(app_manager.RyuApp):
 		for e in edges:
 			self.net[e[0]][e[1]]['weight'] = random.randint(1, 10)
 			#log.info('updated weight : ' + str(e[0]) + " -> " + str(e[1]) + " : " + str(self.net[e[0]][e[1]]['weight']))
+		
+		self.store_network_state()
 

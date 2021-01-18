@@ -15,9 +15,9 @@ SS_FILE = 'trained_ss.pkl'
 
 class Model:
 	def __init__(self):
-		self.model = pickle.load(open(MODEL_FILE, 'rb'))
-		print("params : " + str(self.model.get_params()))
-		#self.model = DBSCAN(eps=2.8, min_samples=25)
+		# self.model = pickle.load(open(MODEL_FILE, 'rb'))
+		# print("params : " + str(self.model.get_params()))
+		self.model = DBSCAN(eps=2.7, min_samples=25)
 		
 		self.ll = LabelEncoder()
 		if path.exists(LL_FILE):
@@ -41,9 +41,7 @@ class Model:
 
 			df.loc[indx, 'weight'] = max(l, default=10)
 
-		# label encoding dst mac addresses
-		df = df[['in-port', 'eth_dst', 'out-port', 'total_packets', 'total_bytes', 'duration', 'weight']]
-		df['eth_dst'] = self.ll.fit_transform(df['eth_dst'])
+		df.drop(columns=['out-port-1', 'out-port-2', 'out-port-3', 'out-port-4', 'out-port-5', 'out-port-6'], inplace=True)
 
 		# normalizing data
 		cols = ['total_packets', 'total_bytes', 'duration', 'weight']
@@ -66,7 +64,9 @@ if __name__ == "__main__":
 	print("inside")
 	obj = Model()
 	df = pd.read_csv('./training data/training_data_pos.csv')
-
+	df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
+	#df = obj.preprocess(df)
+	print(df.columns)
 	N = df.shape[0]
 	i = 0
 	while (i < N):

@@ -5,7 +5,7 @@ ryu-manager --ofp-tcp-listen-port 6633 --observe-links monitor.py ryu.app.ofctl_
 import shortestpath
 from dbscan import Model as DBSCAN
 #from ann import Model as ANN
-from inspector import Inspector
+#from inspector import Inspector
 from loghandler import Logger
 
 from datetime import datetime
@@ -32,8 +32,9 @@ class Monitor(shortestpath.ProjectController):
         self.fields = {'time':'','datapath':'','in-port':'','eth_src':'','eth_dst':'','out-port':'','total_packets':0,'total_bytes':0,\
          'duration':0, 'priority':0, 'out-port-1':[], 'out-port-2':[], 'out-port-3':[], 'out-port-4':[], 'out-port-5':[], 'out-port-6':[], 'class':0}
 
-        self.inspector = Inspector()
+        #self.inspector = Inspector()
 
+        # reading config params from provided conf file
         CONF = cfg.CONF
         CONF.register_opts([
         	cfg.StrOpt('train', default='false'),
@@ -43,6 +44,7 @@ class Monitor(shortestpath.ProjectController):
         
         log.info('model param : ' + str(CONF.model))
 
+        # setting network state vars based on provided flags and values
         if(CONF.train == 'false'):
         	self.train = False
         else:
@@ -120,7 +122,7 @@ class Monitor(shortestpath.ProjectController):
 
 	        	#getting out-edges for switch
 	        	out_edges = list(self.net.out_edges(ev.msg.datapath.id, data=True))
-	        	log.info('out-edges : ' + str(out_edges))
+	        	#log.info('out-edges : ' + str(out_edges))
 
 	        	for e in out_edges:
 	        		if e[2] and 'port' in e[2] and 'weight' in e[2]:
@@ -128,19 +130,21 @@ class Monitor(shortestpath.ProjectController):
 	        			self.fields[fld].append(e[2]['weight'])
 
 	        	if(self.train):
-	        		#log.info('trainning enabled')
+	        		# log.info('trainning enabled')
 	        		flag = os.path.isfile(CSV_FILE)
 	        		with open(CSV_FILE, 'a') as f:
 	        			header = list(self.fields.keys())
 	        			writer = csv.DictWriter(f, fieldnames=header)
 	        			
-	        			#writing header if file is being created for first time
+	        			# writing header if file is being created for first time
 	        			if not flag:
 	        				writer.writeheader()
 
 	        			log.info(self.fields)
 	        			writer.writerow(self.fields)
 	        	else:
+
+	        		# chaging data type to match training data
 	        		self.fields['out-port-1'] = str(self.fields['out-port-1'])
 	        		self.fields['out-port-2'] = str(self.fields['out-port-2'])
 	        		self.fields['out-port-3'] = str(self.fields['out-port-3'])
@@ -148,12 +152,16 @@ class Monitor(shortestpath.ProjectController):
 	        		self.fields['out-port-5'] = str(self.fields['out-port-5'])
 	        		self.fields['out-port-6'] = str(self.fields['out-port-6'])
 
+	        		# predicting class of record with model
 	        		df = pd.DataFrame(self.fields, index=[0])
 	        		df = self.model.preprocess(df)
 	        		res = self.model.predict(df)
-	        		log.info('records : ' + str(df))
+
+	        		log.info('records : \n' + str(df))
 	        		log.info('response from model : ' + str(res))
-	        		if(len(res) > 0 and res[0] == -1):
-	        			self.inspector.verify(self.fields)
+
+	        		# back verifying the record if its classified as malicious
+	        		# if(len(res) > 0 and res[0] == -1):
+	        		# 	self.inspector.verify(self.fields)
 
 

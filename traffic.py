@@ -25,16 +25,16 @@ class TrafficGenerator:
 		while True:
 			# selecting distinct src and dst randomly from available hosts
 			while True:
-				src, dst = random.randint(0, 32), random.randint(0, 32)
-				if(src != dst):
+				i, j = random.randint(0, 32), random.randint(0, 32)
+				if(i != j):
 					break
 
 
-			src, dst = self.net.hosts[src], self.net.hosts[dst]
+			src, dst = self.net.hosts[i], self.net.hosts[j]
 			
 			f = open(LOG_FILE, "a+")
 			curr_timestamp = datetime.utcnow().strftime('%s')
-			f.write(curr_timestamp + " src: " + str(src.name) + " dst: " + str(dst.name) + "\n")
+			f.write(curr_timestamp + " src: " + str(i) + " dst: " + str(j) + "\n")
 
 			# creating server at dst host
 			res = dst.popen('iperf -s -u')
