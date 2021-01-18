@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from os import path
 
-MODEL_FILE = 'trained_dbscan.sav'
+MODEL_FILE = 'trained_dbscan.pkl'
 LL_FILE = 'trained_ll.pkl'
 SS_FILE = 'trained_ss.pkl'
 
@@ -17,6 +17,7 @@ class Model:
 	def __init__(self):
 		self.model = pickle.load(open(MODEL_FILE, 'rb'))
 		print("params : " + str(self.model.get_params()))
+		#self.model = DBSCAN(eps=2.8, min_samples=25)
 		
 		self.ll = LabelEncoder()
 		if path.exists(LL_FILE):
@@ -25,7 +26,6 @@ class Model:
 		self.ss = StandardScaler()
 		if path.exists(SS_FILE):
 			self.ss = pickle.load(open(SS_FILE, 'rb'))
-		#self.model = DBSCAN(eps=3.0, min_samples=25)
 
 	def preprocess(self, df):
 		
@@ -43,11 +43,11 @@ class Model:
 
 		# label encoding dst mac addresses
 		df = df[['in-port', 'eth_dst', 'out-port', 'total_packets', 'total_bytes', 'duration', 'weight']]
-		df['eth_dst'] = self.ll.transform(df['eth_dst'])
+		df['eth_dst'] = self.ll.fit_transform(df['eth_dst'])
 
 		# normalizing data
 		cols = ['total_packets', 'total_bytes', 'duration', 'weight']
-		scaled_values = self.ss.transform(df[cols].values)
+		scaled_values = self.ss.fit_transform(df[cols].values)
 		df[cols] = scaled_values
 		
 		return df
@@ -84,5 +84,5 @@ if __name__ == "__main__":
 	filename = 'trained_ss.pkl'
 	pickle.dump(obj.ss, open(filename, 'wb'))
 
-	filename = 'trained_dbscan.sav'
+	filename = 'trained_dbscan.pkl'
 	pickle.dump(obj.model, open(filename, 'wb'))

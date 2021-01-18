@@ -4,6 +4,8 @@ ryu-manager --ofp-tcp-listen-port 6633 --observe-links monitor.py ryu.app.ofctl_
 
 import shortestpath
 from dbscan import Model as DBSCAN
+#from ann import Model as ANN
+from inspector import Inspector
 from loghandler import Logger
 
 from datetime import datetime
@@ -15,6 +17,7 @@ from ryu.lib.mac import haddr_to_bin
 import pandas as pd
 import csv
 import os
+from ryu import cfg
 
 #training dataset file
 CSV_FILE = 'train_data.csv'
@@ -28,8 +31,29 @@ class Monitor(shortestpath.ProjectController):
         self.monitor_thread = hub.spawn(self._monitor)
         self.fields = {'time':'','datapath':'','in-port':'','eth_src':'','eth_dst':'','out-port':'','total_packets':0,'total_bytes':0,\
          'duration':0, 'priority':0, 'out-port-1':[], 'out-port-2':[], 'out-port-3':[], 'out-port-4':[], 'out-port-5':[], 'out-port-6':[], 'class':0}
-        self.train = False
-        self.model = DBSCAN()
+
+        self.inspector = Inspector()
+
+        CONF = cfg.CONF
+        CONF.register_opts([
+        	cfg.StrOpt('train', default='false'),
+        	cfg.StrOpt('model', default='ann')])
+        
+        log.info('training param :' + str(CONF.train))
+        
+        log.info('model param : ' + str(CONF.model))
+
+        if(CONF.train == 'false'):
+        	self.train = False
+        else:
+        	self.train = True
+
+        if(CONF.model == 'ann'):
+        	self.model = ANN()
+        elif(CONF.model == 'dbscan'):
+        	self.model = DBSCAN()
+        else:
+        	self.model = None
 
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
@@ -129,4 +153,7 @@ class Monitor(shortestpath.ProjectController):
 	        		res = self.model.predict(df)
 	        		log.info('records : ' + str(df))
 	        		log.info('response from model : ' + str(res))
+	        		if(len(res) > 0 and res[0] == -1):
+	        			self.inspector.verify(self.fields)
+
 
