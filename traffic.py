@@ -34,7 +34,7 @@ class TrafficGenerator:
 			
 			f = open(LOG_FILE, "a+")
 			curr_timestamp = datetime.utcnow().strftime('%s')
-			f.write(curr_timestamp + " src: " + str(i) + " dst: " + str(j) + "\n")
+			f.write(curr_timestamp + " src_mac: " + str(src.params) + " dst_mac: " + str(dst.params) + "\n")
 
 			# creating server at dst host
 			res = dst.popen('iperf -s -u')

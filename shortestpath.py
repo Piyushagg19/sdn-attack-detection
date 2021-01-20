@@ -27,9 +27,9 @@ import random
 import requests
 import json
 
-NETWORK_STATE_UPDATE_DURATION = 300
+NETWORK_STATE_UPDATE_DURATION = 120
 NETWORK_STATE_FILE_PATH = "network_state/"
-log = Logger().getlogger()
+log = Logger().getlogger(__name__)
 
 class ProjectController(app_manager.RyuApp):
 	

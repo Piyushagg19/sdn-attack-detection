@@ -1,4 +1,3 @@
-
 from loghandler import Logger
 
 import requests
@@ -14,7 +13,7 @@ PORT = ':8080'
 
 #attack dataset file
 CSV_FILE = 'attack_logs.csv'
-log = Logger().getlogger()
+log = Logger().getlogger(__name__)
 
 def main():
 
@@ -46,6 +45,7 @@ def main():
 			}
 
 			#making post request to add new flow entry in switch
+			log.info('post data : ' + str(data))
 			resp = requests.post(HOST + PORT + '/stats/flowentry/add', json=data)
 			log.info('resp : ' + str(resp))
 			

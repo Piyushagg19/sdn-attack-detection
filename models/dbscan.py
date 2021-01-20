@@ -1,34 +1,25 @@
 from sklearn.cluster import DBSCAN
 import sklearn.utils
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
 import pandas as pd
 pd.options.mode.chained_assignment = None
 import pickle
-
-import matplotlib.pyplot as plt
-import numpy as np
 from os import path
 
-MODEL_FILE = 'trained_dbscan.pkl'
-LL_FILE = 'trained_ll.pkl'
-SS_FILE = 'trained_ss.pkl'
+MODEL_FILE = 'models/trained_dbscan.pkl'
+SS_FILE = 'models/trained_ss.pkl'
 
 class Model:
 	def __init__(self):
-		# self.model = pickle.load(open(MODEL_FILE, 'rb'))
-		# print("params : " + str(self.model.get_params()))
-		self.model = DBSCAN(eps=2.7, min_samples=25)
-		
-		self.ll = LabelEncoder()
-		if path.exists(LL_FILE):
-			self.ll = pickle.load(open(LL_FILE, 'rb'))
+		self.model = pickle.load(open(MODEL_FILE, 'rb'))
+		print("params : " + str(self.model.get_params()))
+		# self.model = DBSCAN(eps=3.1, min_samples=9, algorithm='ball_tree')
 
 		self.ss = StandardScaler()
 		if path.exists(SS_FILE):
 			self.ss = pickle.load(open(SS_FILE, 'rb'))
 
 	def preprocess(self, df):
-		
 		#assigning weights based on out-port
 		for indx, r in df.iterrows():
 			weight_col = 'out-port-' + str(df.loc[indx, 'out-port'])
@@ -45,10 +36,18 @@ class Model:
 
 		# normalizing data
 		cols = ['total_packets', 'total_bytes', 'duration', 'weight']
-		scaled_values = self.ss.fit_transform(df[cols].values)
-		df[cols] = scaled_values
-		
+		self.normalize(df, cols)
 		return df
+
+	def normalize(self, df, cols):
+		df[cols] = df[cols].apply(pd.to_numeric)
+		for col in cols:
+			mean = df[col].mean()
+			sd = df[col].std()
+			if sd == 0:
+				df[col] = 0
+			else:
+				df[col] = (df[col] - mean) / sd
 
 	def fit(self, df):
 		print('inside fit')
@@ -63,26 +62,21 @@ class Model:
 if __name__ == "__main__":
 	print("inside")
 	obj = Model()
-	df = pd.read_csv('./training data/training_data_pos.csv')
+	df = pd.read_csv('../training data/training_data_pos.csv')
 	df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
-	#df = obj.preprocess(df)
-	print(df.columns)
+	df = df[:200000]
 	N = df.shape[0]
 	i = 0
 	while (i < N):
-		temp_df = df[i : min(N, i + 50000)]
-		i += 50000
+		temp_df = df[i : min(N, i + 500)]
+		i += 500
 		temp_df = obj.preprocess(temp_df)
+		print(temp_df.shape)
 		obj.fit(temp_df)
 		n_clusters = len(set(obj.labels)) - (1 if -1 in obj.labels else 0)
 		print('clusters : ' + str(n_clusters))
 		n_outliers = list(obj.labels).count(-1)
 		print('outliers : ' + str(n_outliers))
-	
-	filename = 'trained_ll.pkl'
-	pickle.dump(obj.ll, open(filename, 'wb'))
-	filename = 'trained_ss.pkl'
-	pickle.dump(obj.ss, open(filename, 'wb'))
 
-	filename = 'trained_dbscan.pkl'
-	pickle.dump(obj.model, open(filename, 'wb'))
+	pickle.dump(obj.ss, open(SS_FILE, 'wb'))
+	pickle.dump(obj.model, open(MODEL_FILE, 'wb'))

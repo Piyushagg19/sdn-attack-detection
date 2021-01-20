@@ -1,7 +1,7 @@
 from sklearn.model_selection import train_test_split
 from sklearn import metrics
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Dense, Flatten
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 import pandas as pd
 pd.options.mode.chained_assignment = None
@@ -9,7 +9,7 @@ import pickle
 
 from os import path
 
-MODEL_FILE = 'trained_ann.pkl'
+MODEL_FILE = 'trained_ann.h5'
 LL_FILE = 'trained_ll.pkl'
 SS_FILE = 'trained_ss.pkl'
 
@@ -17,15 +17,15 @@ class Model:
 	def __init__(self):
 		self.model = None
 		if path.exists(MODEL_FILE):
-			self.model = pickle.load(open(MODEL_FILE, 'rb'))
+			self.model = load_model(MODEL_FILE)
 		else:
-			self.model =Sequential()
+			self.model = Sequential()
+			self.model.add(Flatten(input_shape=(7,)))
 			self.model.add(Dense(10, activation='relu'))
-			self.model.add(Dense(50, activation='relu'))
+			self.model.add(Dense(20, activation='relu'))
 			self.model.add(Dense(10, activation='relu'))
-			#self.model.add(Dense(1, kernel_initializer='normal'))
-			self.model.add(Dense(1, activation='softmax'))
-			self.model.compile(loss='categorical_crossentropy', optimizer='adam')
+			self.model.add(Dense(1, activation='sigmoid'))
+			self.model.compile(loss='binary_crossentropy', optimizer='adam')
 		
 		self.ll = LabelEncoder()
 		if path.exists(LL_FILE):
@@ -52,41 +52,40 @@ class Model:
 
 		# label encoding dst mac addresses
 		df = df[['in-port', 'eth_dst', 'out-port', 'total_packets', 'total_bytes', 'duration', 'weight', 'class']]
-		df['eth_dst'] = self.ll.transform(df['eth_dst'])
+		df['eth_dst'] = self.ll.fit_transform(df['eth_dst'])
 
 		# normalizing data
 		cols = ['total_packets', 'total_bytes', 'duration', 'weight']
-		scaled_values = self.ss.transform(df[cols].values)
+		scaled_values = self.ss.fit_transform(df[cols].values)
 		df[cols] = scaled_values
 		return df
 
 	def fit(self, df):
 		print('inside fit')
-		res = self.model.fit(df)
-		self.res = res
-		self.labels = res.labels_
+		self.model.fit(df)
 
 	def predict(self, df):
-		return self.model.fit_predict(df)
+		return self.model.predict(df)
 
 
 if __name__ == "__main__":
 	print("inside")
 	obj = Model()
-	df = pd.read_csv('./training data/training_data_neg_1.csv')
+	df = pd.read_csv('../training data/training_data_neg_1.csv')
+	# df1 = pd.read_csv('./training data/training_data_neg.csv')
+	# df = df.append(df1, ignore_index=True)
 	df = obj.preprocess(df)
 	x_columns = df.columns.drop('class')
 	x = df[x_columns].values
 	y = df['class'].values
 
-	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=2)
+	x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=53)
 
-	obj.model.fit(x_train, y_train, validation_data = (x_test, y_test), verbose=1, epochs=1000)
+	obj.model.fit(x_train, y_train, validation_data = (x_test, y_test), epochs=50)
 	
 	filename = 'trained_ll.pkl'
 	pickle.dump(obj.ll, open(filename, 'wb'))
 	filename = 'trained_ss.pkl'
 	pickle.dump(obj.ss, open(filename, 'wb'))
 
-	# filename = 'trained_dbscan.sav'
-	# pickle.dump(obj.model, open(filename, 'wb'))
+	obj.model.save(MODEL_FILE)

@@ -2,7 +2,10 @@ import logging
 
 class Logger:
 	def __init__(self):
-		self.logger = logging.getLogger()
+		self.logger = None
+
+	def getlogger(self, name):
+		self.logger = logging.getLogger(name)
 		
 		self.logger.setLevel(logging.INFO)
 
@@ -16,6 +19,4 @@ class Logger:
 
 		# add the file handler to the logger
 		self.logger.addHandler(self.handler)
-
-	def getlogger(self):
 		return self.logger

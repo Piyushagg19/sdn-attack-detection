@@ -64,7 +64,7 @@ class Model:
 if __name__ == "__main__":
 	print("inside")
 	obj = Model()
-	df = pd.read_csv('./training data/training_data_pos.csv')
+	df = pd.read_csv('../training data/training_data_pos.csv')
 	df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
 	#df = obj.preprocess(df)
 	print(df.columns)
