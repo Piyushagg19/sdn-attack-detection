@@ -1,6 +1,7 @@
 '''
 ryu-manager --ofp-tcp-listen-port 6633 --observe-links monitor.py ryu.app.ofctl_rest --config-file configs/dbscan.conf
 '''
+from threading import Thread
 
 import shortestpath
 from models.dbscan import Model as DBSCAN
@@ -50,7 +51,7 @@ class Monitor(shortestpath.ProjectController):
                        'out-port-4': [], 'out-port-5': [], 'out-port-6': [], 'class': 0}
 
         self.inspector = Inspector()
-        self.que = Queue(maxsize=500)
+        self.que = Queue(maxsize=5000)
 
         # reading config params from provided conf file
         CONF = cfg.CONF
@@ -105,6 +106,29 @@ class Monitor(shortestpath.ProjectController):
         req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_NONE)
         datapath.send_msg(req)
 
+    def _classify_data(self):
+        # changing data type to match training data
+        self.fields['out-port-1'] = str(self.fields['out-port-1'])
+        self.fields['out-port-2'] = str(self.fields['out-port-2'])
+        self.fields['out-port-3'] = str(self.fields['out-port-3'])
+        self.fields['out-port-4'] = str(self.fields['out-port-4'])
+        self.fields['out-port-5'] = str(self.fields['out-port-5'])
+        self.fields['out-port-6'] = str(self.fields['out-port-6'])
+
+        # log.info('fields : ' + str(self.fields))
+        self.que.add(copy.deepcopy(self.fields))
+        if self.que.qsize() > 8:
+            # predicting class of record with model
+            df = pd.DataFrame(self.que.list)
+            df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
+            df = self.model.preprocess(df)
+            log.info(df.tail(1))
+            res = self.model.predict(df)
+            log.info('response from model : ' + str(res[-1]))
+        # # back verifying the record if its classified as malicious
+        # if len(res) > 0 and res[0] == -1:
+        #     self.inspector.verify(self.fields)
+
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):
         body = ev.msg.body
@@ -155,24 +179,5 @@ class Monitor(shortestpath.ProjectController):
                         log.info(self.fields)
                         writer.writerow(self.fields)
                 else:
-                    # changing data type to match training data
-                    self.fields['out-port-1'] = str(self.fields['out-port-1'])
-                    self.fields['out-port-2'] = str(self.fields['out-port-2'])
-                    self.fields['out-port-3'] = str(self.fields['out-port-3'])
-                    self.fields['out-port-4'] = str(self.fields['out-port-4'])
-                    self.fields['out-port-5'] = str(self.fields['out-port-5'])
-                    self.fields['out-port-6'] = str(self.fields['out-port-6'])
-
-                    # log.info('fields : ' + str(self.fields))
-                    self.que.add(copy.deepcopy(self.fields))
-                    if self.que.qsize() > 8:
-                        # predicting class of record with model
-                        df = pd.DataFrame(self.que.list)
-                        df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
-                        df = self.model.preprocess(df)
-                        log.info(df.tail(1))
-                        res = self.model.predict(df)
-                        log.info('response from model : ' + str(res[-1]))
-                    # back verifying the record if its classified as malicious
-                    # if(len(res) > 0 and res[0] == -1):
-                    # 	self.inspector.verify(self.fields)
+                    child = Thread(target=self._classify_data)
+                    child.start()
