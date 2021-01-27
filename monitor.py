@@ -27,7 +27,7 @@ log = Logger().getlogger(__name__)
 
 class Queue:
     def __init__(self, maxsize):
-        self.maxsize = maxsize;
+        self.maxsize = maxsize
         self.list = []
 
     def add(self, x):
@@ -51,7 +51,7 @@ class Monitor(shortestpath.ProjectController):
                        'out-port-4': [], 'out-port-5': [], 'out-port-6': [], 'class': 0}
 
         self.inspector = Inspector()
-        self.que = Queue(maxsize=5000)
+        self.que = Queue(maxsize=100)
 
         # reading config params from provided conf file
         CONF = cfg.CONF
@@ -92,7 +92,7 @@ class Monitor(shortestpath.ProjectController):
         while True:
             for dp in self.datapaths.values():
                 self._request_stats(dp)
-            hub.sleep(10)
+            hub.sleep(15)
 
     def _request_stats(self, datapath):
         # log.info("send stats request: " + str(datapath.id))
@@ -117,7 +117,7 @@ class Monitor(shortestpath.ProjectController):
 
         # log.info('fields : ' + str(self.fields))
         self.que.add(copy.deepcopy(self.fields))
-        if self.que.qsize() > 8:
+        if self.que.qsize() > 6:
             # predicting class of record with model
             df = pd.DataFrame(self.que.list)
             df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
@@ -179,5 +179,5 @@ class Monitor(shortestpath.ProjectController):
                         log.info(self.fields)
                         writer.writerow(self.fields)
                 else:
-                    child = Thread(target=self._classify_data)
+                    child = Thread(target=self._classify_data, daemon=True)
                     child.start()

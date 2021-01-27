@@ -13,9 +13,9 @@ SS_FILE = 'models/trained_ss.pkl'
 class Model:
 
     def __init__(self):
-        self.model = pickle.load(open(MODEL_FILE, 'rb'))
-        print("params : " + str(self.model.get_params()))
-        # self.model = DBSCAN(eps=2.25, min_samples=9, algorithm='ball_tree')
+        # self.model = pickle.load(open(MODEL_FILE, 'rb'))
+        # print("params : " + str(self.model.get_params()))
+        self.model = DBSCAN(eps=2.5, min_samples=9, algorithm='ball_tree')
 
     def preprocess(self, df):
         # assigning weights based on out-port
@@ -63,24 +63,25 @@ if __name__ == "__main__":
     obj = Model()
     df = pd.read_csv('../training data/training_data_pos.csv')
     df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class'], inplace=True)
-    df = df[1000:5001]
-    df = obj.preprocess(df)
-    obj.fit(df)
-    n_clusters = len(set(obj.labels)) - (1 if -1 in obj.labels else 0)
-    print('clusters : ' + str(n_clusters))
-    n_outliers = list(obj.labels).count(-1)
-    print('outliers : ' + str(n_outliers))
+    df = df[1000:5000]
+    # df = df[2000:2501]
+    # df = obj.preprocess(df)
+    # obj.fit(df)
+    # n_clusters = len(set(obj.labels)) - (1 if -1 in obj.labels else 0)
+    # print('clusters : ' + str(n_clusters))
+    # n_outliers = list(obj.labels).count(-1)
+    # print('outliers : ' + str(n_outliers))
     N = df.shape[0]
     i = 0
-    # while (i < N):
-    # 	temp_df = df[i : min(N, i + 500)]
-    # 	i += 500
-    # 	temp_df = obj.preprocess(temp_df)
-    # 	print(temp_df.shape)
-    # 	obj.fit(temp_df)
-    # 	n_clusters = len(set(obj.labels)) - (1 if -1 in obj.labels else 0)
-    # 	print('clusters : ' + str(n_clusters))
-    # 	n_outliers = list(obj.labels).count(-1)
-    # 	print('outliers : ' + str(n_outliers))
+    while i < N:
+        temp_df = df[i: min(N, i + 100)]
+        i += 100
+        temp_df = obj.preprocess(temp_df)
+        print(temp_df.shape)
+        obj.fit(temp_df)
+        n_clusters = len(set(obj.labels)) - (1 if -1 in obj.labels else 0)
+        print('clusters : ' + str(n_clusters))
+        n_outliers = list(obj.labels).count(-1)
+        print('outliers : ' + str(n_outliers))
 
     pickle.dump(obj.model, open('../' + MODEL_FILE, 'wb'))

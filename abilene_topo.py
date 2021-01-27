@@ -5,6 +5,7 @@ from mininet.net import Mininet
 from mininet.node import OVSSwitch, OVSKernelSwitch, RemoteController
 from mininet.nodelib import LinuxBridge
 from traffic import TrafficGenerator
+from random import randint
 
 switches = []
 hosts = []
@@ -54,7 +55,7 @@ if __name__ == '__main__':
     net = Mininet(topo=topo, controller=None, autoStaticArp=True, autoSetMacs=True)
     trafficGen = TrafficGenerator(net)
 
-    c0 = net.addController(name='controller0', switch=OVSKernelSwitch, controller=RemoteController, ip='127.0.0.1', port=6633)
+    c0 = net.addController(name='controller0', switch=LinuxBridge, controller=RemoteController, ip='127.0.0.1', port=6633)
     net.start()
     CLI(net)
     net.stop()
