@@ -2,11 +2,12 @@ from queue import Queue
 from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler
 import pandas as pd
 from models import dbscan
+import pyshark
 
-model = dbscan.Model()
-print(model.model.get_params())
-print(len(model.model.core_sample_indices_))
-print(model.model.components_)
+# model = dbscan.Model()
+# print(model.model.get_params())
+# print(len(model.model.core_sample_indices_))
+# print(model.model.components_)
 
 # df = pd.read_csv('../training data/training_data_pos.csv')
 # df.drop(columns=['time', 'eth_src', 'eth_dst', 'priority', 'class', 'out-port-1', 'out-port-2', 'out-port-3', 'out-port-4', 'out-port-5', 'out-port-6', 'class'], inplace=True)
@@ -55,3 +56,7 @@ print(model.model.components_)
 # print('records : ' + str(x))
 # print('response from model : ' + str(res))
 # print('actuall result : ' + str(y))
+
+
+cap = pyshark.FileCapture('/home/abhi/.wireshark/logs/wireshark_log.pcap')
+print(cap[10])
