@@ -27,8 +27,7 @@ def main():
             # randomly selecting a switch, an in_port & an out_port
             dpid = random.choice(resp)
             in_port = random.choice([1, 2, 3, 4])
-            # out_port = random.choice([1, 2, 3, 4])
-            out_port = 6
+            out_port = random.choice([1, 2, 3, 4])
 
             # json format flow data
             data = {
