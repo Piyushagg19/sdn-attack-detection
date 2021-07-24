@@ -125,9 +125,9 @@ class Monitor(shortestpath.ProjectController):
             log.info(df.tail(1))
             res = self.model.predict(df)
             log.info('response from model : ' + str(res[-1]))
-        # # back verifying the record if its classified as malicious
-        # if len(res) > 0 and res[0] == -1:
-        #     self.inspector.verify(self.fields)
+        # back verifying the record if its classified as malicious
+        if len(res) > 0 and res[0] == -1:
+            self.inspector.verify(self.fields)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_reply_handler(self, ev):
